@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/eddieraa/proxy"
 	"github.com/sirupsen/logrus"
-	"gitlab.horoquartz.fr/et/back/services/etemptationd/proxy"
 )
 
 func main() {

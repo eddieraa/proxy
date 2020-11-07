@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -11,8 +12,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//Proxy proxy struct
-type Proxy struct {
+//proxy proxy struct
+type proxy struct {
 	in, out net.Conn
 }
 
@@ -21,13 +22,20 @@ type errinfo struct {
 	service string
 }
 
+var (
+	//ErrInvalidArg Invalid argument
+	ErrInvalidArg = errors.New("Invalid arguments")
+	//ErrUnknownProtocol Protocol not supproted
+	ErrUnknownProtocol = errors.New("Protocol not supported for this function")
+)
+
 //NewProxy return new proxy
-func NewProxy(in, out net.Conn) *Proxy {
-	p := &Proxy{in: in, out: out}
+func newProxy(in, out net.Conn) *proxy {
+	p := &proxy{in: in, out: out}
 	return p
 }
 
-func (p *Proxy) copy(in io.ReadCloser, out io.WriteCloser) {
+func (p *proxy) copy(in io.ReadCloser, out io.WriteCloser) {
 	_, err := io.Copy(out, in)
 	if err != nil {
 		logrus.Info(err)
@@ -37,7 +45,7 @@ func (p *Proxy) copy(in io.ReadCloser, out io.WriteCloser) {
 }
 
 //Launch launch the proxy
-func (p *Proxy) Launch() {
+func (p *proxy) Launch() {
 	go p.copy(p.in, p.out)
 	p.copy(p.out, p.in)
 
@@ -54,7 +62,7 @@ func (p *Proxy) Launch() {
 //
 //SHUTDOWN GRACEFULLY\r
 //
-func Parse(in io.Reader) (string, string, []string, error) {
+func parse(in io.Reader) (string, string, []string, error) {
 	var sb strings.Builder
 	var err error
 	res := []string{}
@@ -90,15 +98,54 @@ func Parse(in io.Reader) (string, string, []string, error) {
 
 //Server proxy server instance
 type Server struct {
-	network  string
-	address  string
-	up       bool
-	listener net.Listener
+	network     string
+	address     string
+	up          bool
+	listener    net.Listener
+	fctServices []FctService
+	opts        Options
 }
 
+//Service service network (tcp, unix, udp, ....)
+type Service struct {
+	Network string
+	Address string
+}
+
+//FctService return Service if supported
+type FctService func(action string, args ...string) (service *Service, err error)
+
 //NewServer return new Server
-func NewServer(network, address string) *Server {
-	return &Server{network: network, address: address}
+func NewServer(network, address string, opts ...Option) *Server {
+	s := &Server{
+		network:     network,
+		address:     address,
+		fctServices: []FctService{fctServiceTCP, fctServiceUNIX},
+		opts:        newOptions(opts...),
+	}
+	s.fctServices = append(s.fctServices, s.opts.fcts...)
+
+	return s
+}
+
+func fctServiceTCP(action string, args ...string) (*Service, error) {
+	if action != "tcp" {
+		return nil, ErrUnknownProtocol
+	}
+	if args == nil || len(args) == 0 || args[0] == "" {
+		return nil, ErrInvalidArg
+	}
+	return &Service{Network: "tcp", Address: args[0]}, nil
+}
+
+func fctServiceUNIX(action string, args ...string) (*Service, error) {
+	if action != "unix" {
+		return nil, ErrUnknownProtocol
+	}
+	if args == nil || len(args) == 0 || args[0] == "" {
+		return nil, ErrInvalidArg
+	}
+	return &Service{Network: "unix", Address: args[0]}, nil
 }
 
 //ListenAndServe listen and serve proxy
@@ -120,7 +167,7 @@ func (p *Server) ListenAndServe() (err error) {
 			continue
 		}
 		logrus.Print("Accept new incoming connection from ", conn.LocalAddr())
-		go handleNewIncoming(conn)
+		go handleNewIncoming(conn, p.fctServices)
 
 	}
 	return nil
@@ -137,28 +184,42 @@ func (p *Server) Stop() {
 
 }
 
-func handleNewIncoming(conn net.Conn) {
-	action, arg1, _, err := Parse(conn)
+func handleNewIncoming(conn net.Conn, fcts []FctService) {
+	action, arg1, _, err := parse(conn)
 	logrus.Printf("Parse action %s, arg1 %s", action, arg1)
 	if err != nil {
 		logrus.Errorf("Could not parse new incomming header: %s", err.Error())
 		return
 	}
 
-	if action == "tcp" || action == "unix" {
-		if arg1 == "" {
-			logrus.Errorf("Invalid incoming header no ARG for %s action", action)
-			return
+	var service *Service
+	for _, f := range fcts {
+		service, err = f(action, arg1)
+		if err == ErrUnknownProtocol {
+			continue
 		}
-		outconn, err := net.Dial(action, arg1)
 		if err != nil {
-			err = fmt.Errorf("Could not tcp dial to %s from (%s): %v", arg1, conn.RemoteAddr().String(), err)
-			ErrorHTTP(503, err.Error(), conn)
-			logrus.Error(err)
-			return
+			logrus.Errorf("Invalid incoming header no ARG for %s action", err)
+			break
 		}
-		NewProxy(conn, outconn).Launch()
+		if service != nil {
+			break
+		}
 	}
+	if service == nil {
+		logrus.Error("Could not parse header for unknown error")
+		return
+	}
+
+	outconn, err := net.Dial(service.Network, service.Address)
+	if err != nil {
+		err = fmt.Errorf("Could not tcp dial to %s from (%s): %v", arg1, conn.RemoteAddr().String(), err)
+		ErrorHTTP(503, err.Error(), conn)
+		logrus.Error(err)
+		return
+	}
+	newProxy(conn, outconn).Launch()
+
 }
 
 //Client create this struct for create new HttpClient
