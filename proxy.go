@@ -27,6 +27,8 @@ var (
 	ErrInvalidArg = errors.New("Invalid arguments")
 	//ErrUnknownProtocol Protocol not supproted
 	ErrUnknownProtocol = errors.New("Protocol not supported for this function")
+	//ErrStopRequested Stop action, sent by a client for stopping this server
+	ErrStopRequested = errors.New("Stop is requested by the client")
 )
 
 //NewProxy return new proxy
@@ -54,13 +56,13 @@ func (p *proxy) Launch() {
 //Parse first bytes of stream until '\r' and return array of string, first trame look like this :
 //
 //
-//SERVICE configd opt1=value1 opt2=value2\r....
+//service configd opt1=value1 opt2=value2\r....
 //
-//TCP localhost:5000 \r....
+//tcp localhost:5000 \r....
 //
-//UNIX /tmp/GEN.confid.sock\r....
+//unix /tmp/GEN.confid.sock\r....
 //
-//SHUTDOWN GRACEFULLY\r
+//stop GRACEFULLY\r
 //
 func parse(in io.Reader) (string, string, []string, error) {
 	var sb strings.Builder
@@ -120,7 +122,7 @@ func NewServer(network, address string, opts ...Option) *Server {
 	s := &Server{
 		network:     network,
 		address:     address,
-		fctServices: []FctService{fctServiceTCP, fctServiceUNIX},
+		fctServices: []FctService{fctServiceTCP, fctServiceUNIX, fctServiceSTOP},
 		opts:        newOptions(opts...),
 	}
 	s.fctServices = append(s.fctServices, s.opts.fcts...)
@@ -128,24 +130,35 @@ func NewServer(network, address string, opts ...Option) *Server {
 	return s
 }
 
-func fctServiceTCP(action string, args ...string) (*Service, error) {
-	if action != "tcp" {
-		return nil, ErrUnknownProtocol
+func fctBasicCtrl(action, expectedAction string, args ...string) error {
+	if action != expectedAction {
+		return ErrUnknownProtocol
 	}
 	if args == nil || len(args) == 0 || args[0] == "" {
-		return nil, ErrInvalidArg
+		return ErrInvalidArg
+	}
+	return nil
+}
+
+func fctServiceTCP(action string, args ...string) (*Service, error) {
+	if err := fctBasicCtrl(action, "tcp", args...); err != nil {
+		return nil, err
 	}
 	return &Service{Network: "tcp", Address: args[0]}, nil
 }
 
 func fctServiceUNIX(action string, args ...string) (*Service, error) {
-	if action != "unix" {
-		return nil, ErrUnknownProtocol
-	}
-	if args == nil || len(args) == 0 || args[0] == "" {
-		return nil, ErrInvalidArg
+	if err := fctBasicCtrl(action, "unix", args...); err != nil {
+		return nil, err
 	}
 	return &Service{Network: "unix", Address: args[0]}, nil
+}
+
+func fctServiceSTOP(action string, args ...string) (*Service, error) {
+	if err := fctBasicCtrl(action, "stop", args...); err != nil {
+		return nil, err
+	}
+	return nil, ErrStopRequested
 }
 
 //ListenAndServe listen and serve proxy
@@ -220,47 +233,6 @@ func handleNewIncoming(conn net.Conn, fcts []FctService) {
 	}
 	newProxy(conn, outconn).Launch()
 
-}
-
-//Client create this struct for create new HttpClient
-type Client struct {
-	//proxy address
-	proxyAddress string
-	//tcp|unix
-	proxyNetwork string
-	//network tcp|unix|service
-	serviceNetwork string
-	//service address or service name
-	service string
-}
-
-//NewHTTPClient init proxy client with transport and return new http client
-//
-//proxyNetwork: tcp|unix
-//
-//service: address or service name
-func NewHTTPClient(proxyNetwork, proxyAddress string, serviceNetwork, service string) http.Client {
-	proxyClient := Client{proxyNetwork: proxyNetwork, proxyAddress: proxyAddress, serviceNetwork: serviceNetwork, service: service}
-	trans := &http.Transport{
-		Dial:              proxyClient.proxyDial,
-		DisableKeepAlives: false,
-	}
-	return http.Client{Transport: trans}
-}
-
-//proxyDial connect to proxy server
-//send to proxy network and destination address to the proxy
-//
-//tcp 127.0.0.1:5676\r
-//
-//unix /tmp/myservice.sock\r
-func (p Client) proxyDial(network, address string) (net.Conn, error) {
-	conn, err := net.Dial(p.proxyNetwork, p.proxyAddress)
-	if err == nil {
-		_, err = conn.Write([]byte(fmt.Sprintf("%s %s\r", p.serviceNetwork, p.service)))
-
-	}
-	return conn, err
 }
 
 //ErrorHTTP write HTTP response
