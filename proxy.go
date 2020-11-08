@@ -15,6 +15,7 @@ import (
 //proxy proxy struct
 type proxy struct {
 	in, out net.Conn
+	up      *bool
 }
 
 type errinfo struct {
@@ -32,24 +33,49 @@ var (
 )
 
 //NewProxy return new proxy
-func newProxy(in, out net.Conn) *proxy {
-	p := &proxy{in: in, out: out}
+func newProxy(in, out net.Conn, up *bool) *proxy {
+	p := &proxy{in: in, out: out, up: up}
 	return p
 }
 
-func (p *proxy) copy(in io.ReadCloser, out io.WriteCloser) {
-	_, err := io.Copy(out, in)
+func (p *proxy) copy(src io.ReadCloser, dst io.WriteCloser, up *bool) {
+	var written int64
+	var err error
+	buf := make([]byte, 32*1024)
+	for up == nil || *up {
+		nr, er := src.Read(buf)
+		if nr > 0 {
+			nw, ew := dst.Write(buf[0:nr])
+			if nw > 0 {
+				written += int64(nw)
+			}
+			if ew != nil {
+				err = ew
+				break
+			}
+			if nr != nw {
+				err = io.ErrShortWrite
+				break
+			}
+		}
+		if er != nil {
+			if er != io.EOF {
+				err = er
+			}
+			break
+		}
+	}
 	if err != nil {
 		logrus.Info(err)
 	}
-	defer in.Close()
-	defer out.Close()
+	src.Close()
+	dst.Close()
 }
 
 //Launch launch the proxy
 func (p *proxy) Launch() {
-	go p.copy(p.in, p.out)
-	p.copy(p.out, p.in)
+	go p.copy(p.in, p.out, nil)
+	p.copy(p.out, p.in, p.up)
 
 }
 
@@ -180,7 +206,7 @@ func (p *Server) ListenAndServe() (err error) {
 			continue
 		}
 		logrus.Print("Accept new incoming connection from ", conn.LocalAddr())
-		go handleNewIncoming(conn, p.fctServices)
+		go handleNewIncoming(conn, p.fctServices, &p.up)
 
 	}
 	return nil
@@ -197,7 +223,7 @@ func (p *Server) Stop() {
 
 }
 
-func handleNewIncoming(conn net.Conn, fcts []FctService) {
+func handleNewIncoming(conn net.Conn, fcts []FctService, up *bool) {
 	action, arg1, _, err := parse(conn)
 	logrus.Printf("Parse action %s, arg1 %s", action, arg1)
 	if err != nil {
@@ -212,7 +238,7 @@ func handleNewIncoming(conn net.Conn, fcts []FctService) {
 			continue
 		}
 		if err != nil {
-			logrus.Errorf("Invalid incoming header no ARG for %s action", err)
+			logrus.Errorf("Invalid incoming header action (%s) arg1 (%s), err: %s", action, arg1, err)
 			break
 		}
 		if service != nil {
@@ -220,7 +246,12 @@ func handleNewIncoming(conn net.Conn, fcts []FctService) {
 		}
 	}
 	if service == nil {
-		logrus.Error("Could not parse header for unknown error")
+		if err == nil {
+			logrus.Error("Could not parse header for unknown error")
+			err = ErrInvalidArg
+		}
+		ErrorHTTP(503, err.Error(), conn)
+
 		return
 	}
 
@@ -231,7 +262,7 @@ func handleNewIncoming(conn net.Conn, fcts []FctService) {
 		logrus.Error(err)
 		return
 	}
-	newProxy(conn, outconn).Launch()
+	newProxy(conn, outconn, up).Launch()
 
 }
 

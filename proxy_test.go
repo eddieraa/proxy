@@ -68,6 +68,10 @@ func BenchmarkTestProxyTcpTcp(b *testing.B) {
 	executeNHTTPRequest(b, c, req)
 }
 
+func BenchMarkTestProxyWithRegistry(b *testing.B) {
+
+}
+
 func BenchmarkTestProxyTcpUnix(b *testing.B) {
 	c := NewHTTPClient("tcp", "localhost:7777", "unix", "/tmp/testhttp.sock")
 	req, _ := http.NewRequest("GET", "http://localhost:5566/test", nil)

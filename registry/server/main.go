@@ -16,6 +16,7 @@ func main() {
 	flag.StringVar(&bindAddress, "address", "0.0.0.0:3128", "tcp bind address, usage: proxy --address=0.0.0.0:8585")
 	flag.StringVar(&name, "name", "proxy", "service name, the proxy will register it self with this name")
 
+	flag.Parse()
 	conn, err := nats.Connect(natsURL)
 	if err != nil {
 		log.Fatal("Unable to connect to nats server: ", err)
