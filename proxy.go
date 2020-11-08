@@ -257,7 +257,7 @@ func handleNewIncoming(conn net.Conn, fcts []FctService, up *bool) {
 
 	outconn, err := net.Dial(service.Network, service.Address)
 	if err != nil {
-		err = fmt.Errorf("Could not tcp dial to %s from (%s): %v", arg1, conn.RemoteAddr().String(), err)
+		err = fmt.Errorf("Could not tcp dial for service (%s) to (%s:%s) from (%s): %v", arg1, service.Network, service.Address, conn.RemoteAddr().String(), err)
 		ErrorHTTP(503, err.Error(), conn)
 		logrus.Error(err)
 		return

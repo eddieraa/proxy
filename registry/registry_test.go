@@ -2,11 +2,12 @@ package registry
 
 import (
 	"io"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/eddieraa/registry"
 	"github.com/nats-io/nats.go"
+	"github.com/sirupsen/logrus"
 )
 
 var conn *nats.Conn
@@ -23,15 +24,21 @@ func initRegistry() {
 }
 func TestClientWithRegistry(t *testing.T) {
 	initRegistry()
+	request(t)
+	request(t)
+	request(t)
+}
+
+func request(t *testing.T) {
 	c, err := NewHttpClient("httptest")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	rep, err := c.Get("http://localhost:8081/swagger")
+	rep, err := c.Get("http://popo/lolo/toto.html")
 	if err != nil {
 		t.Fatal("Could not Get ", err)
 	}
-	t.Log("Status  ", rep.Status)
-	io.Copy(ioutil.Discard, rep.Body)
+	logrus.Info("Status  ", rep.Status)
+	io.Copy(os.Stdout, rep.Body)
 }

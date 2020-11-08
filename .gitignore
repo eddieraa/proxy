@@ -1,3 +1,4 @@
 httptest/httptest
 main/main
 go.sum
+registry/server/server
