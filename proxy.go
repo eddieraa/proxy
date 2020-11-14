@@ -250,7 +250,7 @@ func handleNewIncoming(conn net.Conn, fcts []FctService, up *bool) {
 			logrus.Error("Could not parse header for unknown error")
 			err = ErrInvalidArg
 		}
-		ErrorHTTP(503, err.Error(), conn)
+		ErrorHTTP(503, arg1, err.Error(), conn)
 
 		return
 	}
@@ -258,7 +258,7 @@ func handleNewIncoming(conn net.Conn, fcts []FctService, up *bool) {
 	outconn, err := net.Dial(service.Network, service.Address)
 	if err != nil {
 		err = fmt.Errorf("Could not tcp dial for service (%s) to (%s:%s) from (%s): %v", arg1, service.Network, service.Address, conn.RemoteAddr().String(), err)
-		ErrorHTTP(503, err.Error(), conn)
+		ErrorHTTP(503, arg1, err.Error(), conn)
 		logrus.Error(err)
 		return
 	}
@@ -267,7 +267,7 @@ func handleNewIncoming(conn net.Conn, fcts []FctService, up *bool) {
 }
 
 //ErrorHTTP write HTTP response
-func ErrorHTTP(errCode int, errString string, out io.Writer) error {
+func ErrorHTTP(errCode int, service, errString string, out io.Writer) error {
 	r := http.Response{
 		Status:     errString,
 		StatusCode: errCode,
@@ -276,6 +276,8 @@ func ErrorHTTP(errCode int, errString string, out io.Writer) error {
 	t := time.Now()
 	r.Header.Set("Date", t.Format(http.TimeFormat))
 	r.Header.Set("Server", "Proxy")
+	//r.Body = ioutil.NopCloser(strings.NewReader("Service not found " + service + " err is: " + errString + "\n\n"))
+	//r.Body.Read([]byte("Service not found " + service + " err is: " + errString))
 	r.Write(out)
 	return nil
 }

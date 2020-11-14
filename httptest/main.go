@@ -51,7 +51,7 @@ func main() {
 		log.Fatal("Could not connect to nats: ", err)
 	}
 
-	reg, err := registry.Connect(c, registry.RegisterInterval(time.Second*1))
+	reg, err := registry.Connect(registry.Nats(c), registry.RegisterInterval(time.Second*1))
 	if err != nil {
 		log.Fatal("Could not open registry session", err)
 	}

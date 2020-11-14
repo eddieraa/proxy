@@ -22,7 +22,7 @@ func TestClient(t *testing.T) {
 }
 
 func TestWriteHeader(t *testing.T) {
-	ErrorHTTP(200, "OK good", os.Stdout)
+	ErrorHTTP(200, "testService", "OK good", os.Stdout)
 }
 func executeNHTTPRequest(b *testing.B, c http.Client, req *http.Request) {
 	for i := 0; i < b.N; i++ {

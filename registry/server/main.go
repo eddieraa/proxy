@@ -30,7 +30,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Unable to connect to nats server: ", err)
 	}
-	reg, err := registry.Connect(registry.Nats(conn), registry.LoadBalancerOpt())
+	reg, err := registry.Connect(registry.Nats(conn), registry.AddFilter(registry.LoadBalanceFilter()))
 	if err != nil {
 		log.Fatal("Unable to create registry client: ", err)
 	}

@@ -20,8 +20,11 @@ func NewRegistryFunc(registry registry.Registry) proxy.FctService {
 		if err != nil {
 			return nil, err
 		}
-
-		return &proxy.Service{Network: s.Network, Address: s.Address}, nil
+		network := s.Network
+		if network == "" {
+			network = "tcp"
+		}
+		return &proxy.Service{Network: network, Address: s.Address}, nil
 	}
 
 	return findService
