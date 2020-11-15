@@ -1,9 +1,11 @@
 package proxy
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"strings"
@@ -275,9 +277,19 @@ func ErrorHTTP(errCode int, service, errString string, out io.Writer) error {
 	}
 	t := time.Now()
 	r.Header.Set("Date", t.Format(http.TimeFormat))
-	r.Header.Set("Server", "Proxy")
-	//r.Body = ioutil.NopCloser(strings.NewReader("Service not found " + service + " err is: " + errString + "\n\n"))
-	//r.Body.Read([]byte("Service not found " + service + " err is: " + errString))
-	r.Write(out)
-	return nil
+	r.Header.Set("Server", "registry-proxy")
+	r.Header.Set("Content-Type", "text/plain")
+	var body bytes.Buffer
+	body.WriteString("Sorry !! \n")
+	body.WriteString("Service (" + service + ") not found or not available,  err is: " + errString + "\n\n")
+	r.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
+
+	logrus.Info("Error Http")
+	r.ContentLength = int64(body.Len())
+
+	err := r.Write(out)
+
+	logrus.Info("Error Http END")
+
+	return err
 }
