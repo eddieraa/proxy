@@ -77,3 +77,22 @@ func BenchmarkTestProxyTcpUnix(b *testing.B) {
 	req, _ := http.NewRequest("GET", "http://localhost:5566/test", nil)
 	executeNHTTPRequest(b, c, req)
 }
+
+//go test  -run=^$  -bench BenchmarkTemplateParallel -v -benchtime=20s
+func BenchmarkTemplateParallel(b *testing.B) {
+	c := http.Client{}
+
+	b.RunParallel(func(pb *testing.PB) {
+
+		for pb.Next() {
+			resp, err := c.Get("http://localhost:8080/proxy/httptest")
+			if err != nil {
+				b.Fatal(err)
+			}
+			if resp.StatusCode != 200 {
+				b.Log("Fail ", resp.Status)
+			}
+			io.Copy(ioutil.Discard, resp.Body)
+		}
+	})
+}
