@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/eddieraa/registry"
+	pb "github.com/eddieraa/registry/nats"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 )
@@ -20,7 +21,7 @@ func initRegistry() {
 	if err != nil {
 		panic(err)
 	}
-	registry.Connect(registry.Nats(conn))
+	registry.Connect(pb.Nats(conn))
 }
 func TestClientWithRegistry(t *testing.T) {
 	initRegistry()

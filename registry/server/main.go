@@ -7,6 +7,7 @@ import (
 	"github.com/eddieraa/proxy"
 	opts "github.com/eddieraa/proxy/registry"
 	"github.com/eddieraa/registry"
+	pb "github.com/eddieraa/registry/nats"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 )
@@ -30,7 +31,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Unable to connect to nats server: ", err)
 	}
-	reg, err := registry.Connect(registry.Nats(conn), registry.AddFilter(registry.LoadBalanceFilter()))
+	reg, err := registry.Connect(pb.Nats(conn), registry.AddFilter(registry.LoadBalanceFilter()))
 	if err != nil {
 		log.Fatal("Unable to create registry client: ", err)
 	}
