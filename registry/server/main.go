@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/eddieraa/proxy"
 	opts "github.com/eddieraa/proxy/registry"
@@ -31,10 +33,17 @@ func main() {
 	if err != nil {
 		log.Fatal("Unable to connect to nats server: ", err)
 	}
-	reg, err := registry.Connect(pb.Nats(conn), registry.AddFilter(registry.LoadBalanceFilter()))
+	options := []registry.Option{
+		pb.Nats(conn),
+		registry.AddFilter(registry.LoadBalanceFilter()),
+		registry.SetObserverEvent(getObserveEvent()),
+		registry.AddObserveFilter(registry.LocalhostOFilter()),
+	}
+	reg, err := registry.Connect(options...)
 	if err != nil {
 		log.Fatal("Unable to create registry client: ", err)
 	}
+	reg.Observe("*")
 
 	proxyService := registry.Service{
 		Address: bindAddress,
@@ -52,5 +61,36 @@ func main() {
 	err = proxyServer.ListenAndServe()
 	if err != nil {
 		panic(err)
+	}
+}
+
+//ObserveEvent func called when service change state
+func getObserveEvent() registry.ObserverEvent {
+	hostname, err := os.Hostname()
+	if err != nil {
+		logrus.Error("Could not get hostname, ", err)
+		return nil
+	}
+	return func(s registry.Service, ev registry.Event) {
+		logrus.Debugf("receive observe %s event for service %s on address %s", ev, s.Name, s.Address)
+		if strings.HasPrefix(s.Address, "proxy:") {
+			return
+		}
+		if s.Name == "proxy" {
+			return
+		}
+		r, _ := registry.Connect()
+		s.Host = hostname
+		s.Network = "tcp"
+		port := "-1"
+		if offset := strings.Index(s.Address, ":"); offset != -1 {
+			port = s.Address[offset+1:]
+		}
+		s.Address = "proxy:" + port
+		if ev == registry.Register {
+			r.Register(s)
+		} else if ev == registry.Unregister {
+			r.Unregister(s)
+		}
 	}
 }
