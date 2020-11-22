@@ -13,7 +13,7 @@ import (
 
 	"github.com/eddieraa/registry"
 	rnats "github.com/eddieraa/registry/nats"
-	"github.com/nats-io/nats"
+	"github.com/nats-io/nats.go"
 
 	log "github.com/sirupsen/logrus"
 )
