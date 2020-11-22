@@ -10,7 +10,8 @@ import (
 	opts "github.com/eddieraa/proxy/registry"
 	"github.com/eddieraa/registry"
 	pb "github.com/eddieraa/registry/nats"
-	"github.com/nats-io/nats.go"
+	nats "github.com/nats-io/nats.go"
+
 	"github.com/sirupsen/logrus"
 )
 
