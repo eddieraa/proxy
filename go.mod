@@ -10,3 +10,4 @@ require (
 )
 
 //replace github.com/eddieraa/registry => ../registry
+
