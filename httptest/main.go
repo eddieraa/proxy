@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/eddieraa/registry"
+	rnats "github.com/eddieraa/registry/nats"
+
 	"github.com/nats-io/nats.go"
 
 	log "github.com/sirupsen/logrus"
@@ -51,8 +53,7 @@ func main() {
 		log.Fatal("Could not connect to nats: ", err)
 	}
 
-	reg, err := registry.SetDefaultInstance(
-    .Nats(c), registry.RegisterInterval(time.Second*1))
+	reg, err := registry.SetDefaultInstance(rnats.Nats(c), registry.RegisterInterval(time.Second*1))
 	if err != nil {
 		log.Fatal("Could not open registry session", err)
 	}
