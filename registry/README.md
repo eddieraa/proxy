@@ -1,0 +1,1 @@
+# Proxy with service discovery

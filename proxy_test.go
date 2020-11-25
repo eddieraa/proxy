@@ -22,7 +22,7 @@ func TestClient(t *testing.T) {
 }
 
 func TestWriteHeader(t *testing.T) {
-	ErrorHTTP(200, "OK good", os.Stdout)
+	ErrorHTTP(200, "testService", "OK good", os.Stdout)
 }
 func executeNHTTPRequest(b *testing.B, c http.Client, req *http.Request) {
 	for i := 0; i < b.N; i++ {
@@ -68,8 +68,31 @@ func BenchmarkTestProxyTcpTcp(b *testing.B) {
 	executeNHTTPRequest(b, c, req)
 }
 
+func BenchMarkTestProxyWithRegistry(b *testing.B) {
+
+}
+
 func BenchmarkTestProxyTcpUnix(b *testing.B) {
 	c := NewHTTPClient("tcp", "localhost:7777", "unix", "/tmp/testhttp.sock")
 	req, _ := http.NewRequest("GET", "http://localhost:5566/test", nil)
 	executeNHTTPRequest(b, c, req)
+}
+
+//go test  -run=^$  -bench BenchmarkTemplateParallel -v -benchtime=20s
+func BenchmarkTemplateParallel(b *testing.B) {
+	c := http.Client{}
+
+	b.RunParallel(func(pb *testing.PB) {
+
+		for pb.Next() {
+			resp, err := c.Get("http://localhost:8080/proxy/httptest")
+			if err != nil {
+				b.Fatal(err)
+			}
+			if resp.StatusCode != 200 {
+				b.Log("Fail ", resp.Status)
+			}
+			io.Copy(ioutil.Discard, resp.Body)
+		}
+	})
 }
