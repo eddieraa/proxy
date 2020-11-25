@@ -21,7 +21,7 @@ func initRegistry() {
 	if err != nil {
 		panic(err)
 	}
-	registry.Connect(pb.Nats(conn))
+	registry.SetDefaultInstance(pb.Nats(conn))
 }
 func TestClientWithRegistry(t *testing.T) {
 	initRegistry()
@@ -36,7 +36,7 @@ func request(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rep, err := c.Get("http://popo/lolo/toto.html")
+	rep, err := c.Get("http://popo/httptest?toto=titi")
 	if err != nil {
 		t.Fatal("Could not Get ", err)
 	}

@@ -8,7 +8,7 @@ import (
 )
 
 //NewRegistryFunc return FctService based on registry
-func NewRegistryFunc(registry registry.Registry) proxy.FctService {
+func NewRegistryFunc() proxy.FctService {
 	findService := func(action string, args ...string) (*proxy.Service, error) {
 		if action != "service" {
 			return nil, proxy.ErrUnknownProtocol
@@ -31,17 +31,14 @@ func NewRegistryFunc(registry registry.Registry) proxy.FctService {
 }
 
 //NewRegistryOption return registry option
-func NewRegistryOption(registry registry.Registry) proxy.Option {
-	return proxy.AddServiceOption(NewRegistryFunc(registry))
+func NewRegistryOption() proxy.Option {
+	return proxy.AddServiceOption(NewRegistryFunc())
 }
 
 func NewHttpClient(service string) (cli http.Client, err error) {
-	var reg registry.Registry
-	if reg, err = registry.Connect(); err != nil {
-		return
-	}
+
 	var s *registry.Service
-	if s, err = reg.GetService("proxy"); err != nil {
+	if s, err = registry.GetService("proxy"); err != nil {
 		return
 	}
 	return proxy.NewHTTPClient(s.Network, s.Address, "service", service), nil
