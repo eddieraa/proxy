@@ -42,7 +42,7 @@ func main() {
 		registry.SetObserverEvent(getObserveEvent()),
 		registry.AddObserveFilter(registry.LocalhostOFilter()),
 	}
-	if _, err = registry.SetDefaultInstance(options...); err != nil {
+	if _, err = registry.SetDefault(options...); err != nil {
 		log.Fatal("Unable to create registry client: ", err)
 	}
 	registry.Observe("*")

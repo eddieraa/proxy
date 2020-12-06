@@ -21,7 +21,7 @@ func initRegistry() {
 	if err != nil {
 		panic(err)
 	}
-	registry.SetDefaultInstance(pb.Nats(conn))
+	registry.SetDefault(pb.Nats(conn))
 }
 func TestClientWithRegistry(t *testing.T) {
 	initRegistry()
